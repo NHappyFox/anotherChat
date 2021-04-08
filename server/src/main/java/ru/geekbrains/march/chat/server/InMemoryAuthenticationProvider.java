@@ -1,10 +1,11 @@
 package ru.geekbrains.march.chat.server;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.sql.*;
 
 public class InMemoryAuthenticationProvider implements AuthenticationProvider {
+    private static Statement stmt;
+    private static Connection connection;
+
     private class User {
         private String login;
         private String password;
@@ -17,33 +18,44 @@ public class InMemoryAuthenticationProvider implements AuthenticationProvider {
         }
     }
 
-    private List<User> users;
+    public static void connect() {
+        try {
+            Class.forName("org.sqlite.JDBC");
+            connection = DriverManager.getConnection("jdbc:sqlite:newdatabase.db");
+            stmt = connection.createStatement();
+        } catch (ClassNotFoundException | SQLException e) {
+            e.printStackTrace();
+            throw new RuntimeException("Невозможно подключиться к БД");
+        }
 
-    public InMemoryAuthenticationProvider() {
-        this.users = new ArrayList<>(Arrays.asList(
-                new User("Bob", "100", "MegaBob"),
-                new User("Jack", "100", "Mystic"),
-                new User("John", "100", "Wizard")
-        ));
+    }
+
+    public static void discconnect() {
+        if (connection != null) {
+            try {
+                connection.close();
+            } catch (SQLException throwables) {
+                throwables.printStackTrace();
+            }
+        }
     }
 
     @Override
     public String getNicknameByLoginAndPassword(String login, String password) {
-        for (User u : users) {
-            if (u.login.equals(login) && u.password.equals(password)) {
-                return u.nickname;
+        try {
+            ResultSet resultSet = stmt.executeQuery("select nickname from users where login = '" + login + "' and password = '" + password + "';");
+            if (resultSet.next()) {
+                return resultSet.getString("nickname");
             }
+            return null;
+        } catch (SQLException throwables) {
+            throwables.printStackTrace();
+            return null;
         }
-        return null;
     }
 
     @Override
     public void changeNickname(String oldNickname, String newNickname) {
-        for (User u : users) {
-            if (u.nickname.equals(oldNickname)) {
-                u.nickname = newNickname;
-                return;
-            }
-        }
+
     }
 }
